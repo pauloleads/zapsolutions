@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 TORRE DE COMANDO - V3.4 (KAMIKAZE)</title>
+    <style>
+        /* 🔥 MODO INFERNINHO (CORES VÍVIDAS) 🔥 */
+        :root {
+            --bg-dark: #1A1A1D;       /* Quase preto */
+            --bg-light: #2C2C34;      /* Cinza escuro */
+            --border-color: #4E4E5A;  /* Cinza médio */
+            --text-primary: #FFFFFF;  /* Branco */
+            --text-secondary: #B0C4DE;/* Azul aço claro */
+            --accent-green: #00FF7F;  /* Verde Primavera */
+            --accent-red: #FF4500;    /* Laranja-Vermelho */
+            --accent-blue: #00BFFF;   /* Azul Céu Profundo */
+            --accent-purple: #9370DB; /* Roxo Médio */
+            --accent-yellow: #FFD700; /* Ouro */
+        }
+
+        body { font-family: monospace; background-color: var(--bg-dark); color: var(--text-primary); margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-top: 10px; color: #fff; }
+        #sidebar { width: 30%; min-width: 300px; background-color: var(--bg-light); border-right: 1px solid var(--border-color); height: 100vh; display: flex; flex-direction: column; }
+        #sidebar-header { padding: 0 15px; border-bottom: 1px solid var(--border-color); }
+        #lead-list-wrapper { overflow-y: auto; flex-grow: 1; }
+        #main-panel { width: 70%; display: flex; flex-direction: column; height: 100vh; }
+        #chat-window { flex-grow: 1; padding: 20px; overflow-y: auto; }
+        #command-center { padding: 15px; background-color: var(--bg-light); border-top: 1px solid var(--border-color); }
+
+        .lead-item { padding: 10px 15px; border-bottom: 1px solid var(--border-color); cursor: pointer; }
+        .lead-item:hover { background-color: #3e3e4a; }
+        .lead-item.active { background-color: var(--accent-blue); }
+        .lead-item strong { color: var(--text-primary); }
+        .lead-item small { color: var(--text-secondary); display: block; }
+
+        .lead-item.status-respondido { background-color: var(--accent-red); animation: pulse-red 1.5s infinite; }
+        .lead-item.status-respondido strong,
+        .lead-item.status-respondido small { color: #fff !important; font-weight: bold; }
+        @keyframes pulse-red { 0% { background-color: var(--accent-red); } 50% { background-color: #B22222; } 100% { background-color: var(--accent-red); } }
+
+        .msg { display: table; margin-bottom: 10px; max-width: 80%; padding: 8px 12px; border-radius: 8px; }
+        .msg pre { white-space: pre-wrap; word-wrap: break-word; margin: 0; }
+        .msg.inbound { background-color: #3e3e4a; }
+        .msg.outbound { background-color: var(--accent-green); color: #000; margin-left: auto; }
+        .msg small { color: var(--text-secondary); font-size: 0.75em; display: block; margin-top: 4px; text-align: right; }
+        .msg audio, .msg img, .msg video { max-width: 100%; max-height: 300px; margin-top: 5px; border-radius: 5px; }
+
+        input[type="text"], textarea { width: calc(100% - 22px); background-color: var(--bg-dark); color: var(--text-primary); border: 1px solid var(--border-color); padding: 10px; margin-bottom: 10px; }
+        textarea { height: 60px; resize: none; }
+        button { background-color: var(--accent-blue); color: white; border: none; padding: 10px 15px; cursor: pointer; margin: 5px 2px; font-weight: bold; border-radius: 3px; }
+        button:hover { opacity: 0.8; }
+        button:disabled { background-color: #21262d; color: var(--text-secondary); cursor: not-allowed; }
+        button.template { background-color: var(--accent-purple); }
+        button.flow { background-color: #444; }
+        button.danger { background-color: var(--accent-red); }
+        button.pitch { background-color: var(--accent-yellow); color: var(--bg-dark); }
+        .comando-grupo { margin-bottom: 15px; }
+
+        #batch-module { padding: 15px; background-color: #010409; border-bottom: 1px solid var(--border-color); }
+        #batch-list { height: 100px; width: 100%; box-sizing: border-box; }
+        #batch-log { font-size: 0.8em; height: 60px; overflow-y: auto; background-color: var(--bg-dark); border: 1px solid var(--border-color); padding: 5px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <div id="sidebar-header">
+            <h1>🔥 TORRE DE COMANDO</h1>
+            <div id="batch-module">
+                <h3>⚔️ DISPARO EM MASSA (1s) ⚔️</h3>
+                <textarea id="batch-list" placeholder="5511999998888&#10;5521999997777&#10;..."></textarea>
+                <button id="start-batch-btn" class="danger">INICIAR CAÇADA (1s)</button>
+                <div id="batch-log">Log de Disparo: Aguardando ordens...</div>
+            </div>
+            <h2>Conversas Ativas (Respondidos no Topo)</h2>
+            <button onclick="loadLeads()" style="margin-left: 15px;">Atualizar Lista</button>
+        </div>
+        <div id="lead-list-wrapper">
+            <div id="lead-list"></div>
+        </div>
+    </div>
+
+    <div id="main-panel">
+        <div id="chat-window">
+            <h2 id="chat-header">Selecione um Alvo</h2>
+            <div id="message-list" style="display: flex; flex-direction: column;"></div>
+        </div>
+        <div id="command-center">
+            <h3>CENTRO DE COMANDO: <span id="current-target">N/A</span></h3>
+
+            <div class="comando-grupo">
+                <h4>Mensagem Manual (Resposta de Sessão)</h4>
+                <textarea id="message-input" placeholder="Escreva a resposta..."></textarea>
+                <button id="send-text-btn" class="danger">ENVIAR MANUAL</button>
+
+                <button id="send-pitch-btn" class="pitch">ENVIAR PITCH (Fase 1 e 2)</button>
+            </div>
+
+            <div class="comando-grupo">
+                <h4>Bomba Guiada (Qualificação)</h4>
+                <button class="flow" id="send-flow-btn" disabled>Flow Desativado</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSelectedPhone = null;
+        let isBatchRunning = false;
+        // 🔥 ARSENAL ATUALIZADO (5 TEMPLATES) 🔥
+        const TEMPLATES_DE_CAÇA = ['primeiro', 'segundo', 'terceiro'];
+
+        // 🔥 O TEXTO DO SEU PITCH AUTOMÁTICO 🔥
+        const PITCH_TEXT = `O nosso processo é estruturado em duas fases claras para máxima eficiência:
+*CONVERSAR COM (19)982642481 este é um anúncio automático da APi de envios...*
+
+🎯 Fase 1: Mapeamento e Segmentação de Público Identificamos seu Perfil de Cliente Ideal (ICP) através da análise e cruzamento de fontes de dados públicas, permitindo segmentação precisa por critérios demográficos, geográficos e de renda. O entregável é uma lista de contatos qualificados e prontos para a próxima fase.
+
+🤖 Fase 2: Qualificação com Automação IA Um agente de inteligência artificial é integrado ao seu canal de WhatsApp. Este agente executa a abordagem inicial, qualifica o nível de interesse do prospecto e filtra as interações. Sua equipe é acionada apenas para interagir com leads que já demonstraram intenção clara.
+
+Pacotes Operacionais:
+
+📦 *Pacote Prospecção*
+5.000 contatos segmentados
+Automação de Abordagem (IA)
+
+Valor: R$ (SAIBA MAIS)
+
+🚀 *Pacote Engajamento Total*
+10.000 contatos segmentados
+Automação de Abordagem (IA)
+Suporte dedicado (30 dias)
+
+Valor: R$ (CONSULTE-NOS)
+
+🔗 Amostras de resultados e validação social estão disponíveis para análise em: https://renovardominio.com.br
+
+*_Qual pacote de serviço devemos provisionar para ativação imediata?_*
+
+*CONVERSAR COM (19)982642481 este é um anúncio automático da APi de envios...*`;
+
+
+        async function apiFetch(endpoint, method = 'GET', body = null) {
+            try {
+                const options = { method, headers: { 'Content-Type': 'application/json' } };
+                if (body) options.body = JSON.stringify(body);
+                const response = await fetch(endpoint, options);
+
+                // 🔥 CORREÇÃO V3.4: A API de Mídia não retorna JSON, ela retorna a MÍDIA
+                if (endpoint.startsWith('/api/media/')) {
+                    if (!response.ok) throw new Error(`Erro ${response.status} ao buscar mídia`);
+                    return await response.blob(); // Retorna o dado binário
+                }
+
+                const responseData = await response.json();
+                if (!response.ok) throw new Error(responseData.error || `Erro ${response.status}`);
+                return responseData;
+            } catch (err) {
+                console.error(`Erro na API ${endpoint}:`, err.message);
+                logToBatch(`ERRO: ${err.message}`);
+                return null;
+            }
+        }
+
+        async function loadLeads() {
+            const data = await apiFetch('/api/leads');
+            const list = document.getElementById('lead-list');
+            list.innerHTML = '';
+
+            if (data && data.leads && data.leads.length > 0) {
+                data.leads.forEach(lead => {
+                    const item = document.createElement('div');
+                    item.className = 'lead-item';
+                    item.id = `lead-${lead.phone}`;
+                    if (lead.status === 'respondido') item.classList.add('status-respondido');
+
+                    item.innerHTML = `<strong>${lead.name || 'Desconhecido'} (${lead.phone})</strong>
+                                      <small>Status: ${lead.status}</small>
+                                      <small>Último Contato: ${new Date(lead.last_message_at).toLocaleString('pt-BR')}</small>`;
+                    item.onclick = () => selectLead(lead.phone, lead.name);
+                    list.appendChild(item);
+                });
+
+                if (currentSelectedPhone) {
+                    const activeEl = document.getElementById(`lead-${currentSelectedPhone}`);
+                    if (activeEl && !activeEl.classList.contains('status-respondido')) activeEl.classList.add('active');
+                }
+            } else {
+                list.innerHTML = '<p style="padding: 10px;">Nenhum alvo no radar.</p>';
+            }
+        }
+
+        async function selectLead(phone, name) {
+            currentSelectedPhone = phone;
+            const leadElement = document.getElementById(`lead-${phone}`);
+            if (leadElement.classList.contains('status-respondido')) {
+                await apiFetch(`/api/leads/${phone}/mark_read`, 'POST');
+                leadElement.classList.remove('status-respondido');
+                leadElement.querySelector('small:nth-of-type(1)').innerText = 'Status: lido';
+            }
+
+            document.querySelectorAll('.lead-item').forEach(el => el.classList.remove('active'));
+            leadElement.classList.add('active');
+            document.getElementById('chat-header').innerText = `Histórico: ${name} (${phone})`;
+            document.getElementById('current-target').innerText = phone;
+            document.querySelectorAll('#command-center button').forEach(b => b.disabled = (b.id === 'send-flow-btn'));
+            await loadMessages(phone);
+        }
+
+        // 🔥 ATUALIZADO V3.4: Renderiza Mídia (Áudio/Imagem/Vídeo)
+        async function loadMessages(phone) {
+            const chat = document.getElementById('message-list');
+            chat.innerHTML = 'Carregando histórico...';
+
+            // 🔥 CORREÇÃO: A API /api/leads/:phone/messages retorna um ARRAY PURO
+            const messages = await fetch(`/api/leads/${phone}/messages`).then(res => res.json());
+            chat.innerHTML = '';
+
+            if (messages && messages.length > 0) {
+                for (const msg of messages) { // Usa 'for...of' para lidar com 'await'
+                    const item = document.createElement('div');
+                    item.className = `msg ${msg.direction}`;
+                    let contentHTML = '';
+
+                    // Lógica de renderização
+                    if (['audio', 'image', 'video'].includes(msg.type) && msg.direction === 'inbound') {
+                        // Se for mídia recebida, busca ela no bunker
+                        try {
+                            const mediaBlob = await apiFetch(`/api/media/${msg.content}`);
+                            const mediaUrl = URL.createObjectURL(mediaBlob);
+
+                            if (msg.type === 'audio') {
+                                contentHTML = `<audio controls src="${mediaUrl}"></audio>`;
+                            } else if (msg.type === 'image') {
+                                contentHTML = `<img src="${mediaUrl}" alt="Mídia recebida">`;
+                            } else if (msg.type === 'video') {
+                                contentHTML = `<video controls src="${mediaUrl}"></video>`;
+                            }
+                        } catch (mediaErr) {
+                            console.error("Erro ao carregar mídia:", mediaErr);
+                            contentHTML = `<pre>(Erro ao carregar mídia ID: ${msg.content})</pre>`;
+                        }
+                    } else {
+                        // Para 'text', 'button_click', 'outbound', etc.
+                        contentHTML = `<pre>${msg.content || '(Conteúdo vazio)'}</pre>`;
+                    }
+
+                    item.innerHTML = `${contentHTML}
+                                      <small>${new Date(msg.timestamp).toLocaleString('pt-BR')} (tipo: ${msg.type})</small>`;
+                    chat.appendChild(item);
+                }
+            } else {
+                chat.innerHTML = '<p>Nenhuma comunicação registrada.</p>';
+            }
+            document.getElementById('chat-window').scrollTop = document.getElementById('chat-window').scrollHeight;
+        }
+
+        // --- LÓGICA DE CAÇA EM MASSA (O ENXAME) ---
+        const batchLog = document.getElementById('batch-log');
+        function logToBatch(message) {
+            console.log(message);
+            batchLog.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}<br>` + batchLog.innerHTML;
+        }
+
+        const startBatchBtn = document.getElementById('start-batch-btn');
+        startBatchBtn.onclick = async () => {
+            if (isBatchRunning) return;
+            const rawList = document.getElementById('batch-list').value;
+            const phones = rawList.split('\n').map(p => p.trim().replace(/\D/g, '')).filter(p => p.length > 9);
+            if (phones.length === 0) return alert('Cole uma lista de números válidos.');
+
+            isBatchRunning = true;
+            startBatchBtn.disabled = true;
+            startBatchBtn.innerText = 'DISPARANDO...';
+            logToBatch(`Iniciando caçada... ${phones.length} números na lista bruta.`);
+
+            const uniquePhones = [...new Set(phones)];
+            logToBatch(`Filtrando ${uniquePhones.length} números únicos...`);
+
+            const filterResult = await apiFetch('/api/hunt/batch_filter', 'POST', { phones: uniquePhones });
+            if (!filterResult || !filterResult.cleanList) {
+                logToBatch("ERRO FATAL: Falha ao filtrar lista no backend.");
+                isBatchRunning = false; startBatchBtn.disabled = false; startBatchBtn.innerText = 'INICIAR CAÇADA (1s)'; return;
+            }
+
+            const cleanList = filterResult.cleanList;
+            logToBatch(`FILTRO: ${cleanList.length} alvos novos. ${filterResult.totalRejeitados} rejeitados (já no banco).`);
+            if (cleanList.length === 0) {
+                logToBatch("Nenhum alvo novo para caçar.");
+                isBatchRunning = false; startBatchBtn.disabled = false; startBatchBtn.innerText = 'INICIAR CAÇADA (1s)'; return;
+            }
+
+            for (let i = 0; i < cleanList.length; i++) {
+                const phone = cleanList[i];
+                const templateName = TEMPLATES_DE_CAÇA[Math.floor(Math.random() * TEMPLATES_DE_CAÇA.length)];
+                logToBatch(`[${i+1}/${cleanList.length}] Caçando ${phone} com ${templateName}...`);
+
+                const huntResult = await apiFetch('/api/hunt/template', 'POST', {
+                    phone: phone, name: `Alvo Frio ${phone.slice(-4)}`, templateName: templateName
+                });
+                if (huntResult) logToBatch(`-> Míssil enviado para ${phone}.`);
+                else logToBatch(`-> FALHA no disparo para ${phone}. (Ver log do bunker)`);
+
+                // 🔥 CADÊNCIA SUICIDA (1 SEGUNDO) 🔥
+                if (i < cleanList.length - 1) {
+                    logToBatch(`...Aguardando 1 segundo (CADÊNCIA SUICIDA)...`);
+                    await new Promise(r => setTimeout(r, 1000)); // 1 segundo
+                }
+            }
+            logToBatch("--- CAÇADA EM MASSA CONCLUÍDA ---");
+            isBatchRunning = false; startBatchBtn.disabled = false; startBatchBtn.innerText = 'INICIAR CAÇADA (1s)';
+            await loadLeads();
+        };
+
+        // --- FUNÇÕES DE RESPOSTA (SESSÃO) ---
+        document.getElementById('send-text-btn').onclick = async () => {
+            if (!currentSelectedPhone) return alert('Selecione um alvo na lista "Conversas Ativas" primeiro!');
+            const message = document.getElementById('message-input').value;
+            if (!message) return;
+            const result = await apiFetch('/api/send/text', 'POST', { phone: currentSelectedPhone, message: message });
+            if (result) {
+                document.getElementById('message-input').value = '';
+                await loadMessages(currentSelectedPhone);
+            }
+        };
+
+        // 🔥 BOTÃO DE PITCH (V3.4)
+        document.getElementById('send-pitch-btn').onclick = async () => {
+            if (!currentSelectedPhone) return alert('Selecione um alvo na lista "Conversas Ativas" primeiro!');
+            console.log(`Enviando PITCH para ${currentSelectedPhone}...`);
+            const result = await apiFetch('/api/send/text', 'POST', {
+                phone: currentSelectedPhone,
+                message: PITCH_TEXT
+            });
+            if (result) await loadMessages(currentSelectedPhone);
+        };
+
+        document.getElementById('send-flow-btn').onclick = () => {
+            alert('Flows desativados. Foco na caça e no pitch manual.');
+        };
+
+        // --- INICIALIZAÇÃO ---
+        function init() {
+            console.log("Torre de Comando V3.4 (Kamikaze) INICIADA.");
+            document.querySelectorAll('#command-center button').forEach(b => b.disabled = true);
+            loadLeads();
+            setInterval(loadLeads, 15000); // Auto-refresh de alvos (15 segundos)
+        }
+        init();
+    </script>
+</body>
+</html>
